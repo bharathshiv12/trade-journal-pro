@@ -1,64 +1,62 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import ParticleBackground from "@/components/ParticleBackground";
 import CursorTrail from "@/components/CursorTrail";
 import AccountStats from "@/components/AccountStats";
+import AccountSetup from "@/components/AccountSetup";
 import TradeForm from "@/components/TradeForm";
 import TradeHistory from "@/components/TradeHistory";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, LogOut, Settings } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
-  const { toast } = useToast();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [trades, setTrades] = useState<Tables<"trades">[]>([]);
-  const [showSettings, setShowSettings] = useState(false);
-  const [newBalance, setNewBalance] = useState("");
+  const [needsSetup, setNeedsSetup] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
-
     const [profileRes, tradesRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("user_id", user.id).single(),
       supabase.from("trades").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
     ]);
-
-    if (profileRes.data) setProfile(profileRes.data);
+    if (profileRes.data) {
+      setProfile(profileRes.data);
+      // Show setup if brand new account (default balance, no trades)
+      if (profileRes.data.account_balance === 10000 && (!tradesRes.data || tradesRes.data.length === 0)) {
+        setNeedsSetup(true);
+      }
+    }
     if (tradesRes.data) setTrades(tradesRes.data);
+    setLoading(false);
   }, [user]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  const updateBalance = async () => {
-    if (!user || !newBalance) return;
-    const { error } = await supabase
-      .from("profiles")
-      .update({ account_balance: parseFloat(newBalance) })
-      .eq("user_id", user.id);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Balance updated!" });
-      setShowSettings(false);
-      setNewBalance("");
-      fetchData();
-    }
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (needsSetup) {
+    return <AccountSetup onComplete={() => { setNeedsSetup(false); fetchData(); }} />;
+  }
 
   return (
     <div className="min-h-screen relative">
       <ParticleBackground />
       <CursorTrail />
 
-      {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -80,7 +78,7 @@ const Dashboard = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setShowSettings(!showSettings)}
+              onClick={() => navigate("/settings")}
               className="text-muted-foreground hover:text-primary"
             >
               <Settings className="w-4 h-4" />
@@ -97,34 +95,7 @@ const Dashboard = () => {
         </div>
       </motion.header>
 
-      {/* Main Content */}
       <main className="relative z-10 container mx-auto px-4 py-8 space-y-6 max-w-5xl">
-        {/* Settings panel */}
-        {showSettings && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            className="glass rounded-xl p-6"
-          >
-            <h3 className="font-display text-sm uppercase tracking-wider text-muted-foreground mb-4">Account Settings</h3>
-            <div className="flex items-end gap-4">
-              <div className="flex-1 space-y-2">
-                <label className="text-xs text-muted-foreground">Set Account Balance</label>
-                <Input
-                  type="number"
-                  value={newBalance}
-                  onChange={(e) => setNewBalance(e.target.value)}
-                  placeholder={profile?.account_balance?.toString() || "10000"}
-                  className="bg-secondary/50 border-border/50 font-mono"
-                />
-              </div>
-              <Button onClick={updateBalance} className="bg-primary text-primary-foreground font-display text-xs tracking-wider">
-                Update
-              </Button>
-            </div>
-          </motion.div>
-        )}
-
         <AccountStats profile={profile} trades={trades} />
         <TradeForm onTradeAdded={fetchData} />
         <TradeHistory trades={trades} />
