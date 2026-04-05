@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Tables } from "@/integrations/supabase/types";
-import { DollarSign, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, BarChart3, Trophy, Skull, Hash } from "lucide-react";
 
 interface AccountStatsProps {
   profile: Tables<"profiles"> | null;
@@ -14,11 +14,17 @@ const AccountStats = ({ profile, trades }: AccountStatsProps) => {
     ? (closedTrades.filter((t) => Number(t.profit_loss) > 0).length / closedTrades.length) * 100
     : 0;
   const openTrades = trades.filter((t) => t.status === "open").length;
+  const bestTrade = closedTrades.length > 0
+    ? Math.max(...closedTrades.map((t) => Number(t.profit_loss) || 0))
+    : 0;
+  const worstTrade = closedTrades.length > 0
+    ? Math.min(...closedTrades.map((t) => Number(t.profit_loss) || 0))
+    : 0;
 
   const stats = [
     {
       label: "Account Balance",
-      value: `$${Number(profile?.account_balance ?? 10000).toFixed(2)}`,
+      value: `$${Number(profile?.account_balance ?? 10000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       icon: DollarSign,
       color: "text-primary",
       bg: "bg-primary/10",
@@ -38,22 +44,43 @@ const AccountStats = ({ profile, trades }: AccountStatsProps) => {
       bg: winRate >= 50 ? "bg-profit/10" : "bg-loss/10",
     },
     {
+      label: "Total Trades",
+      value: trades.length.toString(),
+      icon: Hash,
+      color: "text-primary",
+      bg: "bg-primary/10",
+    },
+    {
       label: "Open Trades",
       value: openTrades.toString(),
       icon: BarChart3,
       color: "text-primary",
       bg: "bg-primary/10",
     },
+    {
+      label: "Best Trade",
+      value: bestTrade > 0 ? `+$${bestTrade.toFixed(2)}` : "$0.00",
+      icon: Trophy,
+      color: "text-profit",
+      bg: "bg-profit/10",
+    },
+    {
+      label: "Worst Trade",
+      value: worstTrade < 0 ? `-$${Math.abs(worstTrade).toFixed(2)}` : "$0.00",
+      icon: Skull,
+      color: "text-loss",
+      bg: "bg-loss/10",
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
       {stats.map((stat, index) => (
         <motion.div
           key={stat.label}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.1 }}
+          transition={{ delay: index * 0.08 }}
           className="glass rounded-xl p-5 hover:border-primary/20 transition-all"
         >
           <div className="flex items-center gap-3 mb-3">
@@ -62,7 +89,7 @@ const AccountStats = ({ profile, trades }: AccountStatsProps) => {
             </div>
             <span className="text-xs uppercase tracking-wider text-muted-foreground font-display">{stat.label}</span>
           </div>
-          <div className={`text-2xl font-mono font-bold ${stat.color}`}>
+          <div className={`text-xl font-mono font-bold ${stat.color}`}>
             {stat.value}
           </div>
         </motion.div>
