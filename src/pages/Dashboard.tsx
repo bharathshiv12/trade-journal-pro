@@ -17,6 +17,7 @@ import { useLivePrices } from "@/hooks/useLivePrices";
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { prices: livePrices, loading: pricesLoading } = useLivePrices();
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [trades, setTrades] = useState<Tables<"trades">[]>([]);
   const [needsSetup, setNeedsSetup] = useState(false);
