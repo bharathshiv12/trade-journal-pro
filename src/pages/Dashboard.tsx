@@ -99,7 +99,7 @@ const Dashboard = () => {
 
       <main className="relative z-10 container mx-auto px-4 py-8 space-y-6 max-w-5xl">
         <AccountStats profile={profile} trades={trades} />
-        <TradeForm onTradeAdded={fetchData} />
+        <TradeForm onTradeAdded={fetchData} accountBalance={profile?.account_balance ?? 10000} livePrices={livePrices} pricesLoading={pricesLoading} />
         <TradeHistory trades={trades} />
       </main>
     </div>
