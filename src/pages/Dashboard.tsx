@@ -12,6 +12,7 @@ import TradeForm from "@/components/TradeForm";
 import TradeHistory from "@/components/TradeHistory";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, LogOut, Settings } from "lucide-react";
+import { useLivePrices } from "@/hooks/useLivePrices";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
