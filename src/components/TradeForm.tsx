@@ -7,10 +7,13 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Plus, TrendingUp, TrendingDown } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Wifi, WifiOff, ShieldAlert, Target } from "lucide-react";
 
 interface TradeFormProps {
   onTradeAdded: () => void;
+  accountBalance: number;
+  livePrices: Record<string, number>;
+  pricesLoading: boolean;
 }
 
 const ASSET_CATEGORIES = {
@@ -20,7 +23,7 @@ const ASSET_CATEGORIES = {
   "Indian Stocks": ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "HINDUNILVR", "SBIN", "BHARTIARTL", "ITC", "KOTAKBANK", "LT", "AXISBANK", "BAJFINANCE", "MARUTI", "TATAMOTORS"],
 };
 
-const TradeForm = ({ onTradeAdded }: TradeFormProps) => {
+const TradeForm = ({ onTradeAdded, accountBalance, livePrices, pricesLoading }: TradeFormProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
@@ -35,6 +38,16 @@ const TradeForm = ({ onTradeAdded }: TradeFormProps) => {
   const [takeProfit, setTakeProfit] = useState("");
   const [stopLoss, setStopLoss] = useState("");
 
+  const livePrice = asset ? livePrices[asset] : undefined;
+
+  const handleAssetChange = (value: string) => {
+    setAsset(value);
+    // Auto-fill entry price from live price
+    if (livePrices[value]) {
+      setEntryPrice(livePrices[value].toString());
+    }
+  };
+
   const calculatePnL = () => {
     if (!entryPrice || !exitPrice || !positionSize) return null;
     const entry = parseFloat(entryPrice);
@@ -45,7 +58,39 @@ const TradeForm = ({ onTradeAdded }: TradeFormProps) => {
     return (priceDiff / entry) * size * lev;
   };
 
+  const calculateSlPrediction = () => {
+    if (!entryPrice || !stopLoss || !positionSize) return null;
+    const entry = parseFloat(entryPrice);
+    const sl = parseFloat(stopLoss);
+    const size = parseFloat(positionSize);
+    const lev = parseFloat(leverage) || 1;
+    const priceDiff = direction === "long" ? sl - entry : entry - sl;
+    const loss = (priceDiff / entry) * size * lev;
+    const pctOfAccount = accountBalance > 0 ? (Math.abs(loss) / accountBalance) * 100 : 0;
+    return { loss, pctOfAccount };
+  };
+
+  const calculateTpPrediction = () => {
+    if (!entryPrice || !takeProfit || !positionSize) return null;
+    const entry = parseFloat(entryPrice);
+    const tp = parseFloat(takeProfit);
+    const size = parseFloat(positionSize);
+    const lev = parseFloat(leverage) || 1;
+    const priceDiff = direction === "long" ? tp - entry : entry - tp;
+    const profit = (priceDiff / entry) * size * lev;
+    const pctOfAccount = accountBalance > 0 ? (Math.abs(profit) / accountBalance) * 100 : 0;
+    return { profit, pctOfAccount };
+  };
+
   const pnl = calculatePnL();
+  const slPrediction = calculateSlPrediction();
+  const tpPrediction = calculateTpPrediction();
+
+  const getRiskRewardRatio = () => {
+    if (!slPrediction || !tpPrediction || slPrediction.loss === 0) return null;
+    return Math.abs(tpPrediction.profit / slPrediction.loss);
+  };
+  const rrRatio = getRiskRewardRatio();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,12 +165,21 @@ const TradeForm = ({ onTradeAdded }: TradeFormProps) => {
             exit={{ opacity: 0, height: 0 }}
             className="glass rounded-xl p-6"
           >
-            <h3 className="font-display text-lg font-semibold mb-4 text-foreground">Log Trade</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display text-lg font-semibold text-foreground">Log Trade</h3>
+              <div className="flex items-center gap-1.5 text-xs">
+                {pricesLoading ? (
+                  <span className="text-muted-foreground flex items-center gap-1"><WifiOff className="w-3 h-3" /> Loading prices...</span>
+                ) : (
+                  <span className="text-profit flex items-center gap-1"><Wifi className="w-3 h-3" /> Live prices</span>
+                )}
+              </div>
+            </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-muted-foreground text-xs uppercase tracking-wider">Asset</Label>
-                  <Select value={asset} onValueChange={setAsset} required>
+                  <Select value={asset} onValueChange={handleAssetChange} required>
                     <SelectTrigger className="bg-secondary/50 border-border/50">
                       <SelectValue placeholder="Select asset" />
                     </SelectTrigger>
@@ -134,12 +188,27 @@ const TradeForm = ({ onTradeAdded }: TradeFormProps) => {
                         <SelectGroup key={category}>
                           <SelectLabel className="font-display text-xs text-primary tracking-wider">{category}</SelectLabel>
                           {assets.map((a) => (
-                            <SelectItem key={a} value={a}>{a}</SelectItem>
+                            <SelectItem key={a} value={a}>
+                              <div className="flex items-center justify-between w-full gap-3">
+                                <span>{a}</span>
+                                {livePrices[a] && (
+                                  <span className="text-xs text-muted-foreground font-mono">
+                                    ${livePrices[a].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: livePrices[a] < 1 ? 6 : 2 })}
+                                  </span>
+                                )}
+                              </div>
+                            </SelectItem>
                           ))}
                         </SelectGroup>
                       ))}
                     </SelectContent>
                   </Select>
+                  {/* Live price badge */}
+                  {livePrice && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs font-mono text-primary bg-primary/10 rounded-md px-2 py-1 inline-block">
+                      Live: ${livePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: livePrice < 1 ? 6 : 2 })}
+                    </motion.div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -188,17 +257,50 @@ const TradeForm = ({ onTradeAdded }: TradeFormProps) => {
                   <Input type="number" step="1" min="1" value={leverage} onChange={(e) => setLeverage(e.target.value)} className="bg-secondary/50 border-border/50 font-mono" placeholder="1" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground text-xs uppercase tracking-wider">Take Profit</Label>
+                  <Label className="text-muted-foreground text-xs uppercase tracking-wider flex items-center gap-1">
+                    <Target className="w-3 h-3 text-profit" /> Take Profit
+                  </Label>
                   <Input type="number" step="any" value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} className="bg-secondary/50 border-border/50 font-mono" placeholder="0.00" />
+                  {tpPrediction && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs font-mono rounded-md px-2 py-1.5 bg-profit/10 border border-profit/20">
+                      <span className="text-profit font-semibold">
+                        +${tpPrediction.profit.toFixed(2)}
+                      </span>
+                      <span className="text-profit/70 ml-1">
+                        ({tpPrediction.pctOfAccount.toFixed(2)}% of account)
+                      </span>
+                    </motion.div>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground text-xs uppercase tracking-wider">Stop Loss</Label>
+                  <Label className="text-muted-foreground text-xs uppercase tracking-wider flex items-center gap-1">
+                    <ShieldAlert className="w-3 h-3 text-loss" /> Stop Loss
+                  </Label>
                   <Input type="number" step="any" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} className="bg-secondary/50 border-border/50 font-mono" placeholder="0.00" />
+                  {slPrediction && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs font-mono rounded-md px-2 py-1.5 bg-loss/10 border border-loss/20">
+                      <span className="text-loss font-semibold">
+                        -${Math.abs(slPrediction.loss).toFixed(2)}
+                      </span>
+                      <span className="text-loss/70 ml-1">
+                        ({slPrediction.pctOfAccount.toFixed(2)}% of account)
+                      </span>
+                    </motion.div>
+                  )}
                 </div>
-                <div className="col-span-2 flex items-end">
+                <div className="col-span-2 flex flex-col items-end justify-end gap-2">
+                  {/* Risk:Reward ratio */}
+                  {rrRatio !== null && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs font-mono px-3 py-1.5 rounded-md bg-primary/10 border border-primary/20">
+                      <span className="text-muted-foreground">R:R </span>
+                      <span className={`font-semibold ${rrRatio >= 2 ? "text-profit" : rrRatio >= 1 ? "text-primary" : "text-loss"}`}>
+                        1:{rrRatio.toFixed(2)}
+                      </span>
+                    </motion.div>
+                  )}
                   {pnl !== null && (
                     <motion.div
                       initial={{ opacity: 0 }}

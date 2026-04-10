@@ -12,10 +12,12 @@ import TradeForm from "@/components/TradeForm";
 import TradeHistory from "@/components/TradeHistory";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, LogOut, Settings } from "lucide-react";
+import { useLivePrices } from "@/hooks/useLivePrices";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { prices: livePrices, loading: pricesLoading } = useLivePrices();
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
   const [trades, setTrades] = useState<Tables<"trades">[]>([]);
   const [needsSetup, setNeedsSetup] = useState(false);
@@ -97,7 +99,7 @@ const Dashboard = () => {
 
       <main className="relative z-10 container mx-auto px-4 py-8 space-y-6 max-w-5xl">
         <AccountStats profile={profile} trades={trades} />
-        <TradeForm onTradeAdded={fetchData} />
+        <TradeForm onTradeAdded={fetchData} accountBalance={profile?.account_balance ?? 10000} livePrices={livePrices} pricesLoading={pricesLoading} />
         <TradeHistory trades={trades} />
       </main>
     </div>
