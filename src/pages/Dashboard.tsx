@@ -10,6 +10,7 @@ import AccountStats from "@/components/AccountStats";
 import AccountSetup from "@/components/AccountSetup";
 import TradeForm from "@/components/TradeForm";
 import TradeHistory from "@/components/TradeHistory";
+import DashboardCharts from "@/components/DashboardCharts";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, LogOut, Settings } from "lucide-react";
 import { useLivePrices } from "@/hooks/useLivePrices";
@@ -99,6 +100,7 @@ const Dashboard = () => {
 
       <main className="relative z-10 container mx-auto px-4 py-8 space-y-6 max-w-5xl">
         <AccountStats profile={profile} trades={trades} />
+        <DashboardCharts trades={trades} accountBalance={profile?.account_balance ?? 10000} />
         <TradeForm onTradeAdded={fetchData} accountBalance={profile?.account_balance ?? 10000} livePrices={livePrices} pricesLoading={pricesLoading} />
         <TradeHistory trades={trades} />
       </main>
