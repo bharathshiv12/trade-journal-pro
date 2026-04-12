@@ -8,6 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import ParticleBackground from "@/components/ParticleBackground";
 import { Lock } from "lucide-react";
 import { motion } from "framer-motion";
+import { isPasswordValid } from "@/lib/passwordValidation";
+import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 
 const ResetPassword = () => {
   const [password, setPassword] = useState("");
@@ -25,6 +27,10 @@ const ResetPassword = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isPasswordValid(password)) {
+      toast({ title: "Weak password", description: "Please meet all password requirements.", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
@@ -58,8 +64,9 @@ const ResetPassword = () => {
             <Label className="text-muted-foreground text-sm">New Password</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="pl-10 bg-secondary/50 border-border/50" />
+              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={8} className="pl-10 bg-secondary/50 border-border/50" />
             </div>
+            <PasswordStrengthIndicator password={password} />
           </div>
           <Button type="submit" disabled={loading} className="w-full bg-primary text-primary-foreground font-display">
             {loading ? "Updating..." : "Update Password"}

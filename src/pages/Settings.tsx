@@ -15,6 +15,8 @@ import CursorTrail from "@/components/CursorTrail";
 import {
   ArrowLeft, Palette, MousePointer2, Lock, RotateCcw, DollarSign, User, Monitor,
 } from "lucide-react";
+import { isPasswordValid } from "@/lib/passwordValidation";
+import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 
 const TRAIL_COLORS = [
   { label: "Neon Green", value: "0, 255, 136" },
@@ -40,8 +42,8 @@ const Settings = () => {
   const [resetConfirm, setResetConfirm] = useState(false);
 
   const handleChangePassword = async () => {
-    if (newPassword.length < 6) {
-      toast({ title: "Password too short", description: "Minimum 6 characters.", variant: "destructive" });
+    if (!isPasswordValid(newPassword)) {
+      toast({ title: "Weak password", description: "Please meet all password requirements.", variant: "destructive" });
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -283,6 +285,7 @@ const Settings = () => {
                 placeholder="Enter new password"
                 className="bg-secondary/50 border-border/50"
               />
+              <PasswordStrengthIndicator password={newPassword} />
             </div>
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground uppercase tracking-wider">Confirm Password</Label>
