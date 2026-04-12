@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import ParticleBackground from "@/components/ParticleBackground";
 import { TrendingUp, Mail, Lock, User, ArrowRight } from "lucide-react";
+import { isPasswordValid } from "@/lib/passwordValidation";
+import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 
 type AuthMode = "login" | "signup" | "forgot";
 
@@ -26,6 +28,11 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
+      if (mode === "signup" && !isPasswordValid(password)) {
+        toast({ title: "Weak password", description: "Please meet all password requirements.", variant: "destructive" });
+        setIsLoading(false);
+        return;
+      }
       if (mode === "login") {
         const { error } = await signIn(email, password);
         if (error) throw error;
@@ -139,12 +146,13 @@ const Auth = () => {
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
+                      placeholder="••••••••"
                         required
-                        minLength={6}
+                        minLength={8}
                         className="pl-10 bg-secondary/50 border-border/50 focus:border-primary/50 focus:ring-primary/20"
                       />
                     </div>
+                    {mode === "signup" && <PasswordStrengthIndicator password={password} />}
                   </div>
                 )}
 
